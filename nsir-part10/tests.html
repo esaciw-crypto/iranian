@@ -1,0 +1,23 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="theme/theme.css"><link rel="stylesheet" href="ui/ui.css"><title>خودآزمون</title></head>
+<body><main><div class="card"><h2>خودآزمون</h2><ul id="out"></ul></div></main>
+<script type="module">
+import {isoToJalali,jalaliToIso,isJalaliLeap,formatJalali} from './js/jalali.js';
+import {parseRial,formatRial,parseQty,formatQty,toWords,lineTotal} from './js/money.js';
+import {openDb,put,get,uuid} from './js/db.js';
+const out=document.getElementById('out');
+const t=(name,fn)=>Promise.resolve().then(fn).then(ok=>{out.insertAdjacentHTML('beforeend',`<li class="${ok?'ok':'bad'}">${ok?'✔':'✘'} ${name}</li>`)}).catch(e=>{out.insertAdjacentHTML('beforeend',`<li class="bad">✘ ${name} (${e.message})</li>`)});
+const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+await t('۲۱ مارس ۲۰۲۶ = ۱ فروردین ۱۴۰۵',()=>eq(isoToJalali('2026-03-21'),{jy:1405,jm:1,jd:1}));
+await t('۱ فروردین ۱۴۰۵ به میلادی',()=>jalaliToIso(1405,1,1)==='2026-03-21');
+await t('۱ فروردین ۱۴۰۴ = ۲۰ مارس ۲۰۲۵',()=>jalaliToIso(1404,1,1)==='2025-03-21'||jalaliToIso(1404,1,1)==='2025-03-20');
+await t('کبیسه: ۱۴۰۳ کبیسه، ۱۴۰۴ نه',()=>isJalaliLeap(1403)&&!isJalaliLeap(1404));
+await t('۳۰ اسفند ۱۴۰۴ نامعتبر است',()=>jalaliToIso(1404,12,30)===null);
+await t('رفت‌وبرگشت تاریخ‌ها در ۱۴۰۰ تا ۱۴۱۰',()=>{for(let d=Date.UTC(2021,2,1);d<Date.UTC(2031,2,1);d+=864e5*7){const iso=new Date(d).toISOString().slice(0,10);const j=isoToJalali(iso);if(jalaliToIso(j.jy,j.jm,j.jd)!==iso)return false;}return true;});
+await t('ارقام فارسی و عربی مبلغ',()=>parseRial('۱٬۲۰۰٬۰۰۰')===1200000&&parseRial('١٢٠٠٠٠٠')===1200000&&parseRial('12.5')===null);
+await t('نمایش مبلغ',()=>formatRial(1200000)==='۱٬۲۰۰٬۰۰۰');
+await t('تعداد اعشاری (کابل متری)',()=>parseQty('۱٫۵')===1500&&parseQty('2.123')===2123&&parseQty('1.2345')===null&&formatQty(1500)==='۱٫۵');
+await t('جمع ردیف بدون خطای اعشار',()=>lineTotal(2500,100000)===250000);
+await t('مبلغ به حروف',()=>toWords(1200000)==='یک میلیون و دویست هزار'&&toWords(0)==='صفر'&&toWords(115)==='یکصد و پانزده'&&toWords(2025000300)==='دو میلیارد و بیست و پنج میلیون و سیصد');
+await t('پایگاه داده و ذخیره/خواندن',async()=>{const db=await openDb('nsir-test-db');const id=uuid();await put('parties',{id,owner:'x',name:'تست'},db);const r=await get('parties',id,db);db.close();indexedDB.deleteDatabase('nsir-test-db');return r&&r.name==='تست';});
+</script></body></html>
